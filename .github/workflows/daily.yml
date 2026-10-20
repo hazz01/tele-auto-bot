@@ -3,7 +3,10 @@ name: Daily Telegram Message
 
 on:
   schedule:
+    # Every day at 07:00 WIB (00:00 UTC)
     - cron: "0 0 * * *"
+
+  # Allow manual testing
   workflow_dispatch:
 
 jobs:
@@ -19,6 +22,40 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Step 1: Validate the bot token
+      - name: Validate Telegram bot token
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          import urllib.error
+
+          token = os.environ["TELEGRAM_BOT_TOKEN"]
+          url = f"https://api.telegram.org/bot{token}/getMe"
+
+          try:
+              with urllib.request.urlopen(url, timeout=30) as response:
+                  result = json.loads(response.read())
+
+              if not result.get("ok"):
+                  raise SystemExit("Token validation failed.")
+
+              bot = result["result"]
+              print("Token valid!")
+              print(f"Bot username: @{bot['username']}")
+              print(f"Bot ID: {bot['id']}")
+
+          except urllib.error.HTTPError as error:
+              print(f"Telegram returned HTTP {error.code}.")
+              raise SystemExit(
+                  "Check TELEGRAM_BOT_TOKEN in GitHub Secrets."
+              )
+          PY
+
+      # Step 2: Send the Telegram message
       - name: Send Telegram message
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
